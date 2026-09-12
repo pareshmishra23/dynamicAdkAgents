@@ -34,6 +34,7 @@ class H2Database:
             model VARCHAR(256) NOT NULL,
             enabled BOOLEAN NOT NULL DEFAULT TRUE,
             config VARCHAR(16384) NOT NULL DEFAULT '{}',
+            policy VARCHAR(4096) NOT NULL DEFAULT '{}',
             created_at VARCHAR(64) NOT NULL,
             updated_at VARCHAR(64) NOT NULL
         )

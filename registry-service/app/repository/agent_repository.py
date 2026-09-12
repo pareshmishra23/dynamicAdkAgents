@@ -3,17 +3,18 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from app.model.agent import Agent
+from app.model.agent import Agent, AgentPolicy
 from app.repository.database import H2Database
 
 _SELECT = (
-    "SELECT id, name, description, capability, model, enabled, config,"
+    "SELECT id, name, description, capability, model, enabled, config, policy,"
     " created_at, updated_at FROM agents"
 )
 
 
 def _from_row(row: dict[str, Any]) -> Agent:
     raw_config = row["config"] or "{}"
+    raw_policy = row["policy"] or "{}"
     return Agent(
         id=row["id"],
         name=row["name"],
@@ -22,6 +23,7 @@ def _from_row(row: dict[str, Any]) -> Agent:
         model=row["model"],
         enabled=bool(row["enabled"]),
         config=json.loads(raw_config),
+        policy=AgentPolicy.model_validate_json(raw_policy),
         created_at=row["created_at"],
         updated_at=row["updated_at"],
     )
@@ -34,9 +36,9 @@ class AgentRepository:
     def create(self, agent: Agent) -> Agent:
         self._db.execute(
             "INSERT INTO agents"
-            " (id, name, description, capability, model, enabled, config,"
+            " (id, name, description, capability, model, enabled, config, policy,"
             " created_at, updated_at)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 agent.id,
                 agent.name,
@@ -45,6 +47,7 @@ class AgentRepository:
                 agent.model,
                 agent.enabled,
                 json.dumps(agent.config, default=str),
+                json.dumps(agent.policy.model_dump(), default=str),
                 agent.created_at,
                 agent.updated_at,
             ),
@@ -65,13 +68,14 @@ class AgentRepository:
     def update(self, agent: Agent) -> bool:
         affected = self._db.execute(
             "UPDATE agents SET name = ?, description = ?, capability = ?,"
-            " model = ?, config = ?, updated_at = ? WHERE id = ?",
+            " model = ?, config = ?, policy = ?, updated_at = ? WHERE id = ?",
             (
                 agent.name,
                 agent.description,
                 agent.capability,
                 agent.model,
                 json.dumps(agent.config, default=str),
+                json.dumps(agent.policy.model_dump(), default=str),
                 agent.updated_at,
                 agent.id,
             ),

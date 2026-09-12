@@ -23,6 +23,14 @@ Orchestrator (single final decision owner)
 Critic -> Refiner -> bounded validation loop
 ```
 
+## Determinism & runtime policy
+
+Agents are probabilistic; the system must not be. The pool follows a **bounded,
+procedural determinism** contract — identical routing, tools, and decision path for
+identical inputs, with fail-closed defaults (`temperature=0`, pinned model, bounded
+loops). Registry-level enforcement (exists / enabled / duplicate / policy defaults)
+is already live in BEAD 1. Full contract: [`docs/RUNTIME_POLICY.md`](docs/RUNTIME_POLICY.md).
+
 ## Registry control plane (Bead 1)
 
 `registry-service/` contains a standalone **FastAPI + H2** control plane that owns

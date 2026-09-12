@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.model.agent import AgentCreate, AgentUpdate
+from app.model.agent import AgentCreate, AgentPolicy, AgentUpdate
 from app.repository.agent_repository import AgentRepository
 from app.repository.database import H2Database
 from app.service.agent_service import AgentService
@@ -54,6 +54,43 @@ class TestAgentService:
         assert disabled.enabled is False
         enabled = service.set_enabled("taxi_agent", True)
         assert enabled.enabled is True
+
+    def test_create_applies_default_deterministic_policy(self, db: H2Database) -> None:
+        created = _service(db).create(
+            AgentCreate(id="taxi_agent", name="Taxi", capability="taxi-search")
+        )
+        assert created.policy == AgentPolicy()
+        assert created.policy.temperature == 0.0
+        assert created.policy.timeout_seconds == 60
+
+    def test_create_accepts_explicit_policy(self, db: H2Database) -> None:
+        created = _service(db).create(
+            AgentCreate(
+                id="taxi_agent",
+                name="Taxi",
+                capability="taxi-search",
+                policy=AgentPolicy(temperature=0.5, seed=7),
+            )
+        )
+        assert created.policy.temperature == 0.5
+        assert created.policy.seed == 7
+
+    def test_update_merges_policy_partially(self, db: H2Database) -> None:
+        service = _service(db)
+        service.create(
+            AgentCreate(
+                id="taxi_agent",
+                name="Taxi",
+                capability="taxi-search",
+                policy=AgentPolicy(temperature=0.5, seed=7, max_tool_calls=9),
+            )
+        )
+        updated = service.update(
+            "taxi_agent", AgentUpdate(policy=AgentPolicy(temperature=0.0))
+        )
+        assert updated.policy.temperature == 0.0
+        assert updated.policy.seed == 7
+        assert updated.policy.max_tool_calls == 9
 
     def test_delete_raises_not_found_for_missing(self, db: H2Database) -> None:
         with pytest.raises(NotFoundError):

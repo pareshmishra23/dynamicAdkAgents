@@ -86,6 +86,7 @@ class TestAgentApi:
         body = created.json()
         assert body["id"] == "taxi_agent"
         assert body["config"] == {"region": "nyc"}
+        assert body["policy"]["temperature"] == 0.0
 
         fetched = client.get("/api/v1/agents/taxi_agent")
         assert fetched.status_code == 200
@@ -109,6 +110,27 @@ class TestAgentApi:
     def test_duplicate_is_conflict(self, client: TestClient) -> None:
         client.post("/api/v1/agents", json=AGENT_PAYLOAD)
         assert client.post("/api/v1/agents", json=AGENT_PAYLOAD).status_code == 409
+
+    def test_policy_create_and_partial_update(self, client: TestClient) -> None:
+        payload = {**AGENT_PAYLOAD, "policy": {"temperature": 0.7, "seed": 11}}
+        created = client.post("/api/v1/agents", json=payload)
+        assert created.status_code == 201
+        assert created.json()["policy"] == {
+            "temperature": 0.7,
+            "seed": 11,
+            "timeout_seconds": 60,
+            "max_tool_calls": 20,
+            "max_retries": 2,
+            "max_iterations": 3,
+        }
+
+        updated = client.put(
+            "/api/v1/agents/taxi_agent", json={"policy": {"temperature": 0.0}}
+        )
+        assert updated.status_code == 200
+        assert updated.json()["policy"]["temperature"] == 0.0
+        assert updated.json()["policy"]["seed"] == 11
+        assert updated.json()["policy"]["timeout_seconds"] == 60
 
     def test_enabled_filter_excludes_disabled(self, client: TestClient) -> None:
         client.post("/api/v1/agents", json=AGENT_PAYLOAD)

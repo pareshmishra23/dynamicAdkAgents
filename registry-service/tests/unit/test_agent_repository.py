@@ -1,23 +1,32 @@
 from __future__ import annotations
 
-from app.model.agent import Agent, AgentCreate
+from app.model.agent import Agent, AgentCreate, AgentPolicy
 from app.repository.agent_repository import AgentRepository
 from app.repository.database import H2Database
 
 _TS = "2026-01-01T00:00:00.000Z"
 
 
-def _agent(agent_id: str, name: str, enabled: bool = True, capability: str = "general") -> Agent:
+def _agent(
+    agent_id: str,
+    name: str,
+    enabled: bool = True,
+    capability: str = "general",
+    policy: AgentPolicy | None = None,
+) -> Agent:
     return Agent(
-        **AgentCreate(
-            id=agent_id,
-            name=name,
-            description=f"{name} agent",
-            capability=capability,
-            model="local-model",
-            enabled=enabled,
-            config={"region": "nyc"},
-        ).model_dump(),
+        **{
+            **AgentCreate(
+                id=agent_id,
+                name=name,
+                description=f"{name} agent",
+                capability=capability,
+                model="local-model",
+                enabled=enabled,
+                config={"region": "nyc"},
+            ).model_dump(),
+            "policy": policy or AgentPolicy(),
+        },
         created_at=_TS,
         updated_at=_TS,
     )
@@ -34,6 +43,20 @@ class TestAgentRepository:
         repo = AgentRepository(db)
         repo.create(_agent("taxi_agent", "Taxi Agent"))
         assert repo.get("taxi_agent").config == {"region": "nyc"}
+
+    def test_policy_roundtrip(self, db: H2Database) -> None:
+        repo = AgentRepository(db)
+        repo.create(
+            _agent(
+                "taxi_agent",
+                "Taxi Agent",
+                policy=AgentPolicy(temperature=0.2, seed=42, max_tool_calls=8),
+            )
+        )
+        assert repo.get("taxi_agent").policy == AgentPolicy(
+            temperature=0.2, seed=42, max_tool_calls=8
+        )
+        assert repo.get("taxi_agent").policy.timeout_seconds == 60
 
     def test_get_missing_returns_none(self, db: H2Database) -> None:
         assert AgentRepository(db).get("missing") is None

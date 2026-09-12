@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.model.agent import Agent, AgentCreate, AgentUpdate
+from app.model.agent import Agent, AgentCreate, AgentPolicy, AgentUpdate
 from app.repository.agent_repository import AgentRepository
 from app.service.errors import DuplicateError, NotFoundError
 from app.service.timeutils import utcnow
@@ -14,7 +14,9 @@ class AgentService:
         if self._repository.exists(data.id):
             raise DuplicateError("agent", data.id)
         now = utcnow()
-        agent = Agent(**data.model_dump(), created_at=now, updated_at=now)
+        payload = data.model_dump()
+        payload["policy"] = payload["policy"] or AgentPolicy()
+        agent = Agent(**payload, created_at=now, updated_at=now)
         return self._repository.create(agent)
 
     def get(self, agent_id: str) -> Agent:
@@ -31,6 +33,9 @@ class AgentService:
         changes = data.model_dump(exclude_unset=True)
         if not changes:
             return current
+        policy_changes = changes.pop("policy", None)
+        if policy_changes is not None:
+            changes["policy"] = current.policy.model_copy(update=policy_changes)
         updated = current.model_copy(update={**changes, "updated_at": utcnow()})
         self._repository.update(updated)
         return updated

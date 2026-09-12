@@ -5,6 +5,15 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class AgentPolicy(BaseModel):
+    temperature: float = Field(default=0.0, ge=0.0, le=2.0)
+    seed: int | None = None
+    timeout_seconds: int = Field(default=60, gt=0)
+    max_tool_calls: int = Field(default=20, gt=0)
+    max_retries: int = Field(default=2, ge=0)
+    max_iterations: int = Field(default=3, gt=0)
+
+
 class Agent(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
@@ -15,6 +24,7 @@ class Agent(BaseModel):
     model: str
     enabled: bool = True
     config: dict[str, Any] = Field(default_factory=dict)
+    policy: AgentPolicy = Field(default_factory=AgentPolicy)
     created_at: str
     updated_at: str
 
@@ -29,6 +39,7 @@ class AgentCreate(BaseModel):
     model: str = "default-model"
     enabled: bool = True
     config: dict[str, Any] = Field(default_factory=dict)
+    policy: AgentPolicy | None = None
 
 
 class AgentUpdate(BaseModel):
@@ -39,3 +50,4 @@ class AgentUpdate(BaseModel):
     capability: str | None = None
     model: str | None = None
     config: dict[str, Any] | None = None
+    policy: AgentPolicy | None = None
