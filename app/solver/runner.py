@@ -9,7 +9,7 @@ from app.agents.traces import ThinkTracer
 from app.models import RoutingResult, SelectedAgent
 from app.registry.agent_registry import AgentRegistry
 from app.registry.resolver import AgentResolver
-from app.solver.agents import make_solver_factory
+from app.solver.factory import build_solver_factory
 from app.solver.planner import plan_agents
 from app.solver.problems import RoutingProblem
 
@@ -43,6 +43,7 @@ def solve_problem(
     *,
     trace: ThinkTracer | None = None,
     log_dir: Path | None = None,
+    agent_factory=None,
 ) -> SolutionRun:
     plan = plan_agents(problem)
     if trace:
@@ -54,7 +55,8 @@ def solve_problem(
                 f"task={planned.task!r}"
             )
     registry = AgentRegistry(tuple(planned.definition for planned in plan.agents))
-    resolver = AgentResolver(registry, make_solver_factory(problem, trace=trace))
+    factory = agent_factory or build_solver_factory(problem, trace=trace)
+    resolver = AgentResolver(registry, factory)
     routing = RoutingResult(
         selected_agents=tuple(
             SelectedAgent(agent_id=planned.definition.id, reason=planned.reason, task=planned.task)

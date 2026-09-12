@@ -26,6 +26,38 @@ class AgentRegistry:
             raise RegistryError(f"agent already registered: {definition.id}")
         self._agents[definition.id] = definition
 
+    def remove(self, agent_id: str) -> None:
+        if agent_id not in self._agents:
+            raise AgentNotFoundError(f"unknown agent: {agent_id}")
+        del self._agents[agent_id]
+
+    def enable(self, agent_id: str) -> None:
+        self._set_enabled(agent_id, True)
+
+    def disable(self, agent_id: str) -> None:
+        self._set_enabled(agent_id, False)
+
+    def _set_enabled(self, agent_id: str, enabled: bool) -> None:
+        definition = self._agents.get(agent_id)
+        if definition is None:
+            raise AgentNotFoundError(f"unknown agent: {agent_id}")
+        self._agents[agent_id] = AgentDefinition(
+            id=definition.id,
+            version=definition.version,
+            enabled=enabled,
+            name=definition.name,
+            description=definition.description,
+            capabilities=definition.capabilities,
+            instructions=definition.instructions,
+            input_contract=definition.input_contract,
+            output_contract=definition.output_contract,
+            allowed_tools=definition.allowed_tools,
+            limits=definition.limits,
+            model=definition.model,
+            requires_human_approval=definition.requires_human_approval,
+            policy=definition.policy,
+        )
+
     def get(self, agent_id: str, *, enabled_only: bool = True) -> AgentDefinition:
         definition = self._agents.get(agent_id)
         if definition is None:

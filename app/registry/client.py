@@ -29,9 +29,12 @@ class McpServerConfig:
     version: str
 
 
-def _http_get(url: str, timeout: float = 5.0) -> bytes:
+def _http_request(url: str, method: str = "GET", body: bytes | None = None, timeout: float = 5.0) -> bytes:
+    request = urllib.request.Request(url, data=body, method=method)
+    if body is not None:
+        request.add_header("Content-Type", "application/json")
     try:
-        with urllib.request.urlopen(url, timeout=timeout) as response:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
             return response.read()
     except (urllib.error.URLError, urllib.error.HTTPError, OSError, TimeoutError) as exc:
         raise RegistryUnavailable(f"registry unreachable at {url}: {exc}") from exc
@@ -101,29 +104,44 @@ def map_mcp_server(payload: dict[str, Any]) -> McpServerConfig:
 
 
 class RegistryClient:
-    def __init__(self, base_url: str, timeout: float = 5.0, fetch: Callable[[str], bytes] | None = None) -> None:
+    def __init__(
+        self,
+        base_url: str,
+        timeout: float = 5.0,
+        transport: Callable[[str, str, bytes | None], bytes] | None = None,
+    ) -> None:
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
-        self._fetch = fetch or (lambda url: _http_get(url, timeout=timeout))
+        self._transport = transport or (lambda url, method, body: _http_request(url, method, body, timeout))
+
+    def request_json(self, path: str, method: str = "GET", *, body: dict[str, Any] | None = None) -> Any:
+        url = f"{self.base_url}{path}"
+        payload = None if body is None else json.dumps(body).encode("utf-8")
+        return _parse_payload(self._transport(url, method, payload), url)
 
     def fetch_enabled_agents(self) -> tuple[AgentDefinition, ...]:
-        url = self._path("/api/v1/agents", {"enabled": "true"})
-        payload = _parse_payload(self._fetch(url), url)
+        payload = self.request_json("/api/v1/agents?enabled=true")
         records = payload if isinstance(payload, list) else payload.get("items", [])
         return tuple(map_registry_agent(item) for item in records if isinstance(item, dict) and item.get("enabled"))
 
+    def fetch_agent(self, agent_id: str) -> AgentDefinition:
+        payload = self.request_json(f"/api/v1/agents/{agent_id}")
+        return map_registry_agent(payload)
+
+    def enable_agent(self, agent_id: str) -> AgentDefinition:
+        return map_registry_agent(self.request_json(f"/api/v1/agents/{agent_id}/enable", method="PATCH"))
+
+    def disable_agent(self, agent_id: str) -> AgentDefinition:
+        return map_registry_agent(self.request_json(f"/api/v1/agents/{agent_id}/disable", method="PATCH"))
+
+    def update_agent(self, agent_id: str, payload: dict[str, Any]) -> AgentDefinition:
+        return map_registry_agent(self.request_json(f"/api/v1/agents/{agent_id}", method="PUT", body=payload))
+
     def fetch_enabled_mcp_servers(self) -> tuple[McpServerConfig, ...]:
-        url = self._path("/api/v1/mcp-servers", {"enabled": "true"})
-        payload = _parse_payload(self._fetch(url), url)
+        payload = self.request_json("/api/v1/mcp-servers?enabled=true")
         records = payload if isinstance(payload, list) else payload.get("items", [])
         return tuple(
             map_mcp_server(item)
             for item in records
             if isinstance(item, dict) and item.get("enabled") and item.get("endpoint")
         )
-
-    def _path(self, path: str, query: dict[str, str] | None = None) -> str:
-        url = f"{self.base_url}{path}"
-        if query:
-            url = f"{url}?{urllib.parse.urlencode(query)}"
-        return url

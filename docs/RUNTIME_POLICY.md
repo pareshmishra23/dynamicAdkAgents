@@ -132,9 +132,36 @@ Both honour `max_iterations`, `max_parallel_agents`, and the same result contrac
 | Bead | Enforced? |
 | --- | --- |
 | BEAD 1 — registry gates (exists/enabled/duplicate) + `policy` + `output_contract` + `requires_human_approval` | ✅ today |
-| BEAD 2 — Registry Client passes `policy` / contract / approval flag to the ADK execution context | next |
-| BEAD 3 — enabled-only MCP discovery, no disabled exposure | next |
-| BEAD 4 — capability → tool resolution, provider allowlist | next |
-| BEAD 5 — router constrained selection + authorization gate | next |
-| BEAD 6 — only selected+authorized agents become Agent-as-a-Tool | next |
-| BEAD 7 — orchestrator enforces timeouts, `max_iterations`, audit envelope, conflict protocol | next (LangGraph engine landed) |
+| BEAD 2 — Registry Client passes `policy` / contract / approval flag to the ADK execution context | ✅ today |
+| BEAD 3 — enabled-only MCP discovery, no disabled exposure | ✅ today |
+| BEAD 4 — capability → tool resolution, provider allowlist | ✅ today (`PolicyEnforcer`: allowlist + timeout + `max_tool_calls`, run ends `policy_violation`) |
+| BEAD 5 — router constrained selection + authorization gate | ✅ today (`ApprovalEventBus` / webhook / `EventStream`, pause/resume end-to-end) |
+| BEAD 6 — only selected+authorized agents become Agent-as-a-Tool | ✅ today (`AgentTool`/`LlmAgent`, env-guarded; solver default stays deterministic) |
+| BEAD 7 — orchestrator enforces timeouts, `max_iterations`, audit envelope, conflict protocol | ✅ today (LangGraph engine); `websearch`/`webfetch` functional + offline-safe for `research_agent` |
+
+### Runtime pool ops (BEAD 3)
+
+`app/registry/pool.DynamicPool` owns the in-memory registry and is driven by the
+registry control plane at runtime, with no redeploy: `refresh()` applies add /
+remove (disables, never deletes) / version-change diffs; `enable()` / `disable()` /
+`rollback_version()` mutate local + remote state. Every op emits a notify and a
+`PoolRefreshReport` (added/disabled/version_changed/total_enabled).
+
+### Policy enforcement (BEAD 4)
+
+`app/registry.policy.PolicyEnforcer` + `ToolRegistry` wrap every resolved agent
+before execution: unknown or ungranted tool names and `max_tool_calls` breaches
+fail with an audited `policy_violation`; `timeout_seconds` is a wall-clock cap.
+Violations force the run to end with status `policy_violation` (fail-closed, never
+a silent success). `websearch`/`webfetch` are registered, grant-only for `research_agent` (BEAD 7), and
+**offline-safe**: without `WEBSEARCH_PROVIDER=http` + `WEBSEARCH_ENDPOINT` they return an
+explicit `unavailable` note instead of inventing data.
+
+### Approval events (BEAD 5)
+
+`app/agents/events.ApprovalEventBus` emits `approval_pending`, `approval_approved`,
+`approval_rejected` per agent per run. Sinks: in-process subscribers
+(`EventStream` for SSE-style consumption) or `WebhookSink` (HTTP POST). The
+LangGraph engine publishes these automatically when a
+`requires_human_approval` agent crosses the gate; `resume(run_id, "approved"|"rejected")`
+is the pause/resume contract, with the run ending `approved`/`rejected` recorded.

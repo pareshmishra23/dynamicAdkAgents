@@ -1,0 +1,160 @@
+[
+  {
+    "problem_id": "1",
+    "title": "The Triangle Route (3 Cities)",
+    "status": "completed",
+    "passed": true,
+    "duration_ms": 5.6,
+    "iterations": 1,
+    "tool_calls": 0,
+    "escalation": false,
+    "decided_agents": [
+      "graph_builder",
+      "tour_engine",
+      "route_validator"
+    ],
+    "decided_at": 1789209382.1299992
+  },
+  {
+    "problem_id": "2",
+    "title": "The Square Matrix (4 Cities)",
+    "status": "completed",
+    "passed": true,
+    "duration_ms": 3.1,
+    "iterations": 1,
+    "tool_calls": 0,
+    "escalation": false,
+    "decided_agents": [
+      "graph_builder",
+      "tour_engine",
+      "route_validator"
+    ],
+    "decided_at": 1789209382.130007
+  },
+  {
+    "problem_id": "3",
+    "title": "The Linear Highway (4 Cities)",
+    "status": "completed",
+    "passed": true,
+    "duration_ms": 3.6,
+    "iterations": 1,
+    "tool_calls": 0,
+    "escalation": false,
+    "decided_agents": [
+      "graph_builder",
+      "tour_engine",
+      "route_validator"
+    ],
+    "decided_at": 1789209382.1300118
+  },
+  {
+    "problem_id": "4",
+    "title": "The Asymmetric One-Way Street (5 Cities)",
+    "status": "completed",
+    "passed": true,
+    "duration_ms": 3.4,
+    "iterations": 1,
+    "tool_calls": 0,
+    "escalation": false,
+    "decided_agents": [
+      "graph_builder",
+      "tour_engine",
+      "route_validator"
+    ],
+    "decided_at": 1789209382.130015
+  },
+  {
+    "problem_id": "5",
+    "title": "The Morning Hub Constraint (6 Cities)",
+    "status": "completed",
+    "passed": true,
+    "duration_ms": 3.1,
+    "iterations": 1,
+    "tool_calls": 0,
+    "escalation": false,
+    "decided_agents": [
+      "graph_builder",
+      "tour_engine",
+      "route_validator"
+    ],
+    "decided_at": 1789209382.1300201
+  },
+  {
+    "problem_id": "6",
+    "title": "The Hub-and-Spoke (7 Cities)",
+    "status": "completed",
+    "passed": true,
+    "duration_ms": 3.8,
+    "iterations": 1,
+    "tool_calls": 0,
+    "escalation": false,
+    "decided_agents": [
+      "graph_builder",
+      "tour_engine",
+      "route_validator"
+    ],
+    "decided_at": 1789209382.130024
+  },
+  {
+    "problem_id": "7",
+    "title": "The 15-City Factorial",
+    "status": "completed",
+    "passed": true,
+    "duration_ms": 3.6,
+    "iterations": 1,
+    "tool_calls": 0,
+    "escalation": false,
+    "decided_agents": [
+      "graph_builder",
+      "tour_engine",
+      "route_validator",
+      "optimizer"
+    ],
+    "decided_at": 1789209382.130031
+  },
+  {
+    "problem_id": "8",
+    "title": "The VRP Split (2 vehicles, 10 cities)",
+    "status": "completed",
+    "passed": true,
+    "duration_ms": 3.0,
+    "iterations": 1,
+    "tool_calls": 0,
+    "escalation": false,
+    "decided_agents": [
+      "vrp_splitter",
+      "vrp_validator"
+    ],
+    "decided_at": 1789209382.1300359
+  },
+  {
+    "problem_id": "9",
+    "title": "The Disconnected Island",
+    "status": "completed",
+    "passed": true,
+    "duration_ms": 2.5,
+    "iterations": 1,
+    "tool_calls": 0,
+    "escalation": false,
+    "decided_agents": [
+      "graph_builder",
+      "route_validator"
+    ],
+    "decided_at": 1789209382.130039
+  },
+  {
+    "problem_id": "10",
+    "title": "The Time-Paradox Delivery",
+    "status": "completed",
+    "passed": true,
+    "duration_ms": 3.0,
+    "iterations": 1,
+    "tool_calls": 0,
+    "escalation": false,
+    "decided_agents": [
+      "dependency_checker",
+      "order_reviewer"
+    ],
+    "decided_at": 1789209382.1300411
+  }
+]
