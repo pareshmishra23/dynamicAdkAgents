@@ -58,6 +58,9 @@ def load_agent_definitions(path: str | Path) -> tuple[AgentDefinition, ...]:
         )
         if limits.timeout_seconds <= 0 or limits.max_tool_calls < 0:
             raise ConfigurationError(f"invalid limits for agent: {agent_id}")
+        policy_data = entry.get("policy")
+        if policy_data is not None and not isinstance(policy_data, dict):
+            raise ConfigurationError(f"policy must be a mapping for agent: {agent_id}")
         definitions.append(
             AgentDefinition(
                 id=agent_id,
@@ -71,6 +74,9 @@ def load_agent_definitions(path: str | Path) -> tuple[AgentDefinition, ...]:
                 output_contract=dict(entry.get("output_contract") or {}),
                 allowed_tools=tuple(str(item) for item in entry.get("allowed_tools") or []),
                 limits=limits,
+                model=str(entry.get("model") or ""),
+                requires_human_approval=bool(entry.get("requires_human_approval", False)),
+                policy=dict(policy_data or {}),
             )
         )
     return tuple(definitions)

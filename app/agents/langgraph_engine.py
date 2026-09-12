@@ -71,7 +71,7 @@ class LangGraphOrchestrator:
         if max_iterations < 1:
             raise ValueError("max_iterations must be positive")
         self._resolver = resolver
-        self._needs_approval = needs_approval or (lambda agent_id: False)
+        self._needs_approval = needs_approval or self._needs_approval_from_resolver
         self._critic = critic or _default_critic
         self._refiner = refiner or _default_refiner
         self._max_iterations = max_iterations
@@ -112,6 +112,12 @@ class LangGraphOrchestrator:
             "configurable": {"thread_id": run_id},
             "recursion_limit": 50,
         }
+
+    def _needs_approval_from_resolver(self, agent_id: str) -> bool:
+        try:
+            return self._resolver.resolve(agent_id).definition.requires_human_approval
+        except Exception:
+            return False
 
     def start(self, routing: RoutingResult, run_id: str = "run-default") -> EngineResult:
         if self._tracer:

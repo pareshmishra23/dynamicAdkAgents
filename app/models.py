@@ -23,6 +23,9 @@ class AgentDefinition:
     output_contract: dict[str, Any]
     allowed_tools: tuple[str, ...] = ()
     limits: AgentLimits = field(default_factory=AgentLimits)
+    model: str = ""
+    requires_human_approval: bool = False
+    policy: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
