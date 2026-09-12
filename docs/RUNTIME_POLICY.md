@@ -56,14 +56,67 @@ Validation rules (enforced by the registry API, 4xx on violation):
    lookups, blocked tools, retries, and final status (the PDF result envelope:
    `run_id`, `agent_id`, `status`, `output`, `tool_calls`, `duration_ms`).
 
-## 4. Deployment posture
+## 4. Conflict & Reconciliation Protocol
+
+Agents are *small tasks*; conflicts still happen when their decisive outputs collide
+(two specialists claim the same user need, or carry contradictory evidence). The pool
+resolves them the way a code agent resolves a merge conflict — never by hope.
+
+| Code agent (merge) | Agent pool |
+| --- | --- |
+| Edit overlap conflict | Conflicting specialist recommendations / mutually exclusive evidence |
+| Conflict detection | **Critic** — structured check on the proposal (overlap, contradiction, contract) |
+| Deterministic resolution | **Reconciliation rules** — capability precedence / orchestrator tie-break, *not* LLM debate |
+| Rebase / merge | **Refiner** — applies the resolved direction |
+| Conflict markers → human | `abstain_human_review` — the run stops decisively |
+| Never silent corruption | Invalid or contradictory output never propagates |
+
+Rules:
+
+1. **Detect as data.** A conflict is a structured event (`issue`), not a vibe.
+2. **Resolve by rule first.** Precedence table wins; the LLM only refines *within* the
+   resolved direction.
+3. **Bounded looping.** Critic/refiner runs at most `max_iterations` (default 3).
+4. **Decisive stop.** On exhaustion the run ends `abstain_human_review` — it declares
+   the conflict rather than guessing.
+
+## 5. Human-in-the-Loop (HITL) policy
+
+Some agents are policy-marked `requires_human_approval: true` (registry field). These
+must not execute on an automated decision alone.
+
+- **Gate before execution.** Selected agents flagged for approval pause the run and
+  emit `awaiting_human_approval` with the pending agent id.
+- **Explicit resolution.** A human approves or rejects per agent; rejected agents are
+  excluded from the run, approved agents proceed. The decision is recorded.
+- **No partial silence.** If every selected agent is rejected → `no_agents_authorized`.
+- **Escalation outcomes.** Unresolved critic loops end in `abstain_human_review`; both
+  escalation states are first-class results, not errors.
+- **Audit.** Approver action, timestamp, agent id, and final status are recorded.
+
+Implementation: the LangGraph engine uses a native checkpointed `interrupt()` gate, so
+approval survives process restarts via the checkpointer.
+
+## 6. Orchestration engines
+
+Two engines, one contract. Pick by case, not by preference.
+
+| Engine | Use for | Properties |
+| --- | --- | --- |
+| `app.agents.orchestrator` (default) | Plain parallel / sequential runs | Zero extra deps, deterministic, fast |
+| `app.agents.langgraph_engine.LangGraphOrchestrator` (optional `[graph]`) | HITL approval, conflict reconciliation, error-recovery, pause/resume | Stateful checkpointed graph, native `interrupt()`/resume, bounded critic loop |
+
+Both honour `max_iterations`, `max_parallel_agents`, and the same result contract.
+
+## 7. Deployment posture
 
 - **Realtime / interactive:** `temperature=0`, pinned `seed`, enabled-only registry
   lookups, bounded loops. This is the default and is fully local.
 - **Creative / batch (opt-in only):** raise `temperature` per agent via `policy`.
   The contract above still applies to routing, tools, and decision path.
+- **Approval-required actions:** HITL gate is mandatory regardless of posture.
 
-## 5. Determinism tests (no Gemini needed)
+## 8. Determinism tests (no Gemini needed)
 
 - **Golden runs:** frozen registry snapshot + frozen model version → assert same agent
   selection and same ordered tool-call sequence across runs.
@@ -71,15 +124,17 @@ Validation rules (enforced by the registry API, 4xx on violation):
   unknown capabilities (registry 404/409 semantics — already covered by unit + BDD).
 - **Replay:** same input executed twice → identical tool sequences and result contract
   conformance.
+- **Reconciliation tests:** critic/refiner terminates within `max_iterations`; HITL
+  pauses on approval-required agents and resumes to a decisive outcome.
 
-## 6. Current enforcement status
+## 9. Current enforcement status
 
 | Bead | Enforced? |
 | --- | --- |
-| BEAD 1 — registry gates (exists/enabled/duplicate) + `policy` field with deterministic defaults | ✅ today |
-| BEAD 2 — Registry Client passes `policy` to the ADK execution context | next |
+| BEAD 1 — registry gates (exists/enabled/duplicate) + `policy` + `output_contract` + `requires_human_approval` | ✅ today |
+| BEAD 2 — Registry Client passes `policy` / contract / approval flag to the ADK execution context | next |
 | BEAD 3 — enabled-only MCP discovery, no disabled exposure | next |
 | BEAD 4 — capability → tool resolution, provider allowlist | next |
 | BEAD 5 — router constrained selection + authorization gate | next |
 | BEAD 6 — only selected+authorized agents become Agent-as-a-Tool | next |
-| BEAD 7 — orchestrator enforces timeouts, `max_iterations`, audit envelope | next |
+| BEAD 7 — orchestrator enforces timeouts, `max_iterations`, audit envelope, conflict protocol | next (LangGraph engine landed) |

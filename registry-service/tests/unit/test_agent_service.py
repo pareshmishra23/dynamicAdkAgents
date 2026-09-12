@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.model.agent import AgentCreate, AgentPolicy, AgentUpdate
+from app.model.agent import AgentCreate, AgentPolicy, AgentUpdate, OutputContract
 from app.repository.agent_repository import AgentRepository
 from app.repository.database import H2Database
 from app.service.agent_service import AgentService
@@ -91,6 +91,27 @@ class TestAgentService:
         assert updated.policy.temperature == 0.0
         assert updated.policy.seed == 7
         assert updated.policy.max_tool_calls == 9
+
+    def test_create_and_update_output_contract_and_hitl_flag(self, db: H2Database) -> None:
+        service = _service(db)
+        contract = OutputContract(required=["summary", "confidence"])
+        created = service.create(
+            AgentCreate(
+                id="car_agent",
+                name="Car",
+                capability="car-rental",
+                output_contract=contract,
+                requires_human_approval=True,
+            )
+        )
+        assert created.requires_human_approval is True
+        assert created.output_contract == contract
+
+        updated = service.update(
+            "car_agent", AgentUpdate(requires_human_approval=False)
+        )
+        assert updated.requires_human_approval is False
+        assert updated.output_contract == contract
 
     def test_delete_raises_not_found_for_missing(self, db: H2Database) -> None:
         with pytest.raises(NotFoundError):

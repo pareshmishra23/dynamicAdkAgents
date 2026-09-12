@@ -132,6 +132,24 @@ class TestAgentApi:
         assert updated.json()["policy"]["seed"] == 11
         assert updated.json()["policy"]["timeout_seconds"] == 60
 
+    def test_output_contract_and_hitl_flag(self, client: TestClient) -> None:
+        payload = {
+            **AGENT_PAYLOAD,
+            "output_contract": {"required": ["summary", "confidence"], "properties": {}},
+            "requires_human_approval": True,
+        }
+        created = client.post("/api/v1/agents", json=payload)
+        assert created.status_code == 201
+        body = created.json()
+        assert body["requires_human_approval"] is True
+        assert body["output_contract"]["required"] == ["summary", "confidence"]
+
+        updated = client.put(
+            "/api/v1/agents/taxi_agent", json={"requires_human_approval": False}
+        )
+        assert updated.json()["requires_human_approval"] is False
+        assert updated.json()["output_contract"]["required"] == ["summary", "confidence"]
+
     def test_enabled_filter_excludes_disabled(self, client: TestClient) -> None:
         client.post("/api/v1/agents", json=AGENT_PAYLOAD)
         client.post(

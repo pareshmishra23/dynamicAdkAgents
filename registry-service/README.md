@@ -130,12 +130,18 @@ Versioned under `/api/v1`.
 | DELETE | `/api/v1/agents/{id}` | Remove (404 if unknown) |
 
 `agent` fields: `id`, `name`, `description`, `capability`, `model`, `enabled`,
-`config`, `policy`, `created_at`, `updated_at`.
+`config`, `policy`, `output_contract`, `requires_human_approval`, `created_at`,
+`updated_at`.
 
 `policy` is the determinism/runtime contract: `temperature` (default `0.0`),
 `seed`, `timeout_seconds`, `max_tool_calls`, `max_retries`, `max_iterations`.
 Defaults are deterministic (greedy, bounded, fail-closed). See
 [`docs/RUNTIME_POLICY.md`](../docs/RUNTIME_POLICY.md) for the full contract.
+
+`output_contract` (optional) is the expected decisive output shape: `type`,
+`required` properties. `requires_human_approval` (default `false`) marks an agent
+that must pause for human approval before it may execute; the orchestrator gates on
+it (see the HITL section of `docs/RUNTIME_POLICY.md`).
 
 ### Example
 

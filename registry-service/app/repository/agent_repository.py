@@ -3,18 +3,19 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from app.model.agent import Agent, AgentPolicy
+from app.model.agent import Agent, AgentPolicy, OutputContract
 from app.repository.database import H2Database
 
 _SELECT = (
     "SELECT id, name, description, capability, model, enabled, config, policy,"
-    " created_at, updated_at FROM agents"
+    " output_contract, requires_human_approval, created_at, updated_at FROM agents"
 )
 
 
 def _from_row(row: dict[str, Any]) -> Agent:
     raw_config = row["config"] or "{}"
     raw_policy = row["policy"] or "{}"
+    raw_contract = row["output_contract"]
     return Agent(
         id=row["id"],
         name=row["name"],
@@ -24,6 +25,8 @@ def _from_row(row: dict[str, Any]) -> Agent:
         enabled=bool(row["enabled"]),
         config=json.loads(raw_config),
         policy=AgentPolicy.model_validate_json(raw_policy),
+        output_contract=OutputContract.model_validate_json(raw_contract) if raw_contract else None,
+        requires_human_approval=bool(row["requires_human_approval"]),
         created_at=row["created_at"],
         updated_at=row["updated_at"],
     )
@@ -37,8 +40,8 @@ class AgentRepository:
         self._db.execute(
             "INSERT INTO agents"
             " (id, name, description, capability, model, enabled, config, policy,"
-            " created_at, updated_at)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " output_contract, requires_human_approval, created_at, updated_at)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 agent.id,
                 agent.name,
@@ -48,6 +51,8 @@ class AgentRepository:
                 agent.enabled,
                 json.dumps(agent.config, default=str),
                 json.dumps(agent.policy.model_dump(), default=str),
+                json.dumps(agent.output_contract.model_dump()) if agent.output_contract else None,
+                agent.requires_human_approval,
                 agent.created_at,
                 agent.updated_at,
             ),
@@ -68,7 +73,8 @@ class AgentRepository:
     def update(self, agent: Agent) -> bool:
         affected = self._db.execute(
             "UPDATE agents SET name = ?, description = ?, capability = ?,"
-            " model = ?, config = ?, policy = ?, updated_at = ? WHERE id = ?",
+            " model = ?, config = ?, policy = ?, output_contract = ?,"
+            " requires_human_approval = ?, updated_at = ? WHERE id = ?",
             (
                 agent.name,
                 agent.description,
@@ -76,6 +82,8 @@ class AgentRepository:
                 agent.model,
                 json.dumps(agent.config, default=str),
                 json.dumps(agent.policy.model_dump(), default=str),
+                json.dumps(agent.output_contract.model_dump()) if agent.output_contract else None,
+                agent.requires_human_approval,
                 agent.updated_at,
                 agent.id,
             ),

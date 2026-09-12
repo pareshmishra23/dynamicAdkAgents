@@ -28,8 +28,12 @@ Critic -> Refiner -> bounded validation loop
 Agents are probabilistic; the system must not be. The pool follows a **bounded,
 procedural determinism** contract — identical routing, tools, and decision path for
 identical inputs, with fail-closed defaults (`temperature=0`, pinned model, bounded
-loops). Registry-level enforcement (exists / enabled / duplicate / policy defaults)
-is already live in BEAD 1. Full contract: [`docs/RUNTIME_POLICY.md`](docs/RUNTIME_POLICY.md).
+loops). Registry-level enforcement (exists / enabled / duplicate / policy defaults /
+`output_contract` / `requires_human_approval`) is already live in BEAD 1. Conflict
+reconciliation and human-in-the-loop approval follow the Conflict & Reconciliation
+Protocol; `app/agents/langgraph_engine.LangGraphOrchestrator` (optional `[graph]`
+extra) implements it on a stateful, checkpointed graph with pause/resume. Full
+contract: [`docs/RUNTIME_POLICY.md`](docs/RUNTIME_POLICY.md).
 
 ## Registry control plane (Bead 1)
 

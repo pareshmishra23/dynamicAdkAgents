@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.model.agent import Agent, AgentCreate, AgentPolicy
+from app.model.agent import Agent, AgentCreate, AgentPolicy, OutputContract
 from app.repository.agent_repository import AgentRepository
 from app.repository.database import H2Database
 
@@ -57,6 +57,37 @@ class TestAgentRepository:
             temperature=0.2, seed=42, max_tool_calls=8
         )
         assert repo.get("taxi_agent").policy.timeout_seconds == 60
+
+    def test_output_contract_and_hitl_roundtrip(self, db: H2Database) -> None:
+        repo = AgentRepository(db)
+        contract = OutputContract(required=["summary", "confidence"], properties={"summary": "str"})
+        repo.create(
+            Agent(
+                **{
+                    **AgentCreate(
+                        id="car_agent",
+                        name="Car Agent",
+                        capability="car-rental",
+                        model="local-model",
+                    ).model_dump(),
+                    "policy": AgentPolicy(),
+                    "output_contract": contract,
+                    "requires_human_approval": True,
+                },
+                created_at=_TS,
+                updated_at=_TS,
+            )
+        )
+        got = repo.get("car_agent")
+        assert got.requires_human_approval is True
+        assert got.output_contract is not None
+        assert got.output_contract.required == ["summary", "confidence"]
+
+    def test_defaults_require_no_human_approval(self, db: H2Database) -> None:
+        repo = AgentRepository(db)
+        repo.create(_agent("taxi_agent", "Taxi Agent"))
+        assert repo.get("taxi_agent").requires_human_approval is False
+        assert repo.get("taxi_agent").output_contract is None
 
     def test_get_missing_returns_none(self, db: H2Database) -> None:
         assert AgentRepository(db).get("missing") is None

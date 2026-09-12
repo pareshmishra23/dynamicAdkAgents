@@ -35,6 +35,8 @@ class H2Database:
             enabled BOOLEAN NOT NULL DEFAULT TRUE,
             config VARCHAR(16384) NOT NULL DEFAULT '{}',
             policy VARCHAR(4096) NOT NULL DEFAULT '{}',
+            output_contract VARCHAR(4096),
+            requires_human_approval BOOLEAN NOT NULL DEFAULT FALSE,
             created_at VARCHAR(64) NOT NULL,
             updated_at VARCHAR(64) NOT NULL
         )

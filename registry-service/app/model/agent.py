@@ -14,6 +14,12 @@ class AgentPolicy(BaseModel):
     max_iterations: int = Field(default=3, gt=0)
 
 
+class OutputContract(BaseModel):
+    type: str = "object"
+    required: list[str] = Field(default_factory=list)
+    properties: dict[str, str] = Field(default_factory=dict)
+
+
 class Agent(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
@@ -25,6 +31,8 @@ class Agent(BaseModel):
     enabled: bool = True
     config: dict[str, Any] = Field(default_factory=dict)
     policy: AgentPolicy = Field(default_factory=AgentPolicy)
+    output_contract: OutputContract | None = None
+    requires_human_approval: bool = False
     created_at: str
     updated_at: str
 
@@ -40,6 +48,8 @@ class AgentCreate(BaseModel):
     enabled: bool = True
     config: dict[str, Any] = Field(default_factory=dict)
     policy: AgentPolicy | None = None
+    output_contract: OutputContract | None = None
+    requires_human_approval: bool = False
 
 
 class AgentUpdate(BaseModel):
@@ -51,3 +61,5 @@ class AgentUpdate(BaseModel):
     model: str | None = None
     config: dict[str, Any] | None = None
     policy: AgentPolicy | None = None
+    output_contract: OutputContract | None = None
+    requires_human_approval: bool | None = None

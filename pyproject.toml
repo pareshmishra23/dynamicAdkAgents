@@ -8,6 +8,7 @@ dependencies = ["PyYAML>=6.0"]
 [project.optional-dependencies]
 test = ["pytest>=8.0", "pytest-bdd>=7.0"]
 adk = ["google-adk>=1.0.0"]
+graph = ["langgraph>=0.2.0"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
