@@ -8,3 +8,5 @@ __pycache__/
 .coverage
 htmlcov/
 *.egg-info/
+/logs/
+**/.DS_Store

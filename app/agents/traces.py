@@ -16,6 +16,32 @@ _COLORS = {
 _RESET = "\033[0m"
 
 
+class TracerAgent:
+    """Agent-scoped view into a ThinkTracer: prefixes every step with the agent id."""
+
+    def __init__(self, tracer: ThinkTracer, agent_id: str) -> None:
+        self._tracer = tracer
+        self._agent_id = agent_id
+
+    def _emit(self, label: str, message: str) -> None:
+        self._tracer.emit(label, f"{self._agent_id}: {message}")
+
+    def think(self, message: str) -> None:
+        self._emit("think", message)
+
+    def pointer(self, message: str) -> None:
+        self._emit("pointer", message)
+
+    def act(self, message: str) -> None:
+        self._emit("act", message)
+
+    def verify(self, message: str) -> None:
+        self._emit("verify", message)
+
+    def decide(self, message: str) -> None:
+        self._emit("decide", message)
+
+
 class ThinkTracer:
     """Print the pool's reasoning trail so humans can audit what each agent
     points at, executes, and why — mirroring how coding agents show their work."""
@@ -24,6 +50,9 @@ class ThinkTracer:
         self._enabled = enabled
         self._stream = stream or sys.stdout
         self._steps: list[str] = []
+
+    def named(self, agent_id: str) -> TracerAgent:
+        return TracerAgent(self, agent_id)
 
     @property
     def enabled(self) -> bool:
