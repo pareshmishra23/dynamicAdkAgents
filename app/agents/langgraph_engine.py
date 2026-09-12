@@ -1,16 +1,19 @@
 from __future__ import annotations
 
+import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any, Callable, TypedDict
 
 from langgraph.checkpoint.memory import MemorySaver
+from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command, interrupt
 
 from app.agents.factory import AgentAsTool
 from app.agents.orchestrator import Critique
-from app.models import AgentResult, RoutingResult
+from app.agents.traces import ThinkTracer
+from app.models import AgentResult, RoutingResult, SelectedAgent
 from app.registry.resolver import AgentResolver
 
 
@@ -35,6 +38,7 @@ class EngineResult:
     iterations: int = 0
     approved: tuple[str, ...] = ()
     rejected: tuple[str, ...] = ()
+    trace: tuple[str, ...] = ()
 
 
 def _default_critic(proposal: str) -> Critique:
@@ -62,6 +66,7 @@ class LangGraphOrchestrator:
         max_iterations: int = 3,
         max_parallel_agents: int = 5,
         parallel: bool = True,
+        trace: ThinkTracer | None = None,
     ) -> None:
         if max_iterations < 1:
             raise ValueError("max_iterations must be positive")
@@ -72,7 +77,9 @@ class LangGraphOrchestrator:
         self._max_iterations = max_iterations
         self._max_parallel_agents = max_parallel_agents
         self._parallel = parallel
-        self._checkpointer = MemorySaver()
+        self._tracer = trace
+        serde = JsonPlusSerializer(allowed_msgpack_modules=[SelectedAgent, RoutingResult, AgentResult])
+        self._checkpointer = MemorySaver(serde=serde)
         self._compiled = self._build_graph().compile(checkpointer=self._checkpointer)
 
     def _build_graph(self) -> StateGraph:
@@ -107,6 +114,10 @@ class LangGraphOrchestrator:
         }
 
     def start(self, routing: RoutingResult, run_id: str = "run-default") -> EngineResult:
+        if self._tracer:
+            self._tracer.think(f"run={run_id} -> routing {len(routing.selected_agents)} candidate agents")
+            for item in routing.selected_agents:
+                self._tracer.pointer(f"selected {item.agent_id}: reason={item.reason!r} task={item.task!r}")
         initial: OrchestrationState = {
             "routing": routing,
             "approvals": [],
@@ -133,13 +144,18 @@ class LangGraphOrchestrator:
         if pending is not None:
             return EngineResult(status="awaiting_human_approval", pending_approval=pending)
         values = self._compiled.get_state(self._config(run_id)).values
+        status = values.get("status", "completed")
+        iterations = values.get("iterations", 0)
+        if self._tracer:
+            self._tracer.decide(f"status={status} iterations={iterations}")
         return EngineResult(
-            status=values.get("status", "completed"),
+            status=status,
             decision=values.get("proposal"),
             results=tuple(values.get("results", {}).values()),
-            iterations=values.get("iterations", 0),
+            iterations=iterations,
             approved=tuple(values.get("approvals", [])),
             rejected=tuple(values.get("rejections", [])),
+            trace=self._tracer.steps if self._tracer else (),
         )
 
     def _approval_gate(self, state: OrchestrationState) -> dict[str, Any]:
@@ -149,8 +165,14 @@ class LangGraphOrchestrator:
             if item.agent_id in approvals or item.agent_id in rejections:
                 continue
             if self._needs_approval(item.agent_id):
+                if self._tracer:
+                    self._tracer.escalate(
+                        f"human approval required for {item.agent_id} -> pausing at interrupt gate"
+                    )
                 decision = interrupt({"type": "human_approval", "agent_id": item.agent_id})
                 (approvals if decision == "approved" else rejections).append(item.agent_id)
+            elif self._tracer:
+                self._tracer.think(f"{item.agent_id} auto-approved (no approval policy)")
         return {"approvals": approvals, "rejections": rejections}
 
     def _selected_pairs(self, state: OrchestrationState) -> list[tuple[AgentAsTool, Any]]:
@@ -164,23 +186,65 @@ class LangGraphOrchestrator:
 
     def _run_specialists(self, state: OrchestrationState) -> dict[str, Any]:
         pairs = self._selected_pairs(state)
+        if self._tracer:
+            for tool, item in pairs:
+                definition = self._resolver.resolve(item.agent_id).definition
+                tools = ", ".join(definition.allowed_tools) or "(none)"
+                self._tracer.pointer(
+                    f"{item.agent_id} v{definition.version} -> capabilities={list(definition.capabilities)} "
+                    f"| tools=[{tools}] | contract={definition.output_contract or '(none)'}"
+                )
         if self._parallel and 1 < len(pairs) <= self._max_parallel_agents:
             with ThreadPoolExecutor(max_workers=len(pairs)) as executor:
-                futures = [executor.submit(tool, item.task) for tool, item in pairs]
+                futures = []
+                for tool, item in pairs:
+                    def run(agent_tool=tool, task=item.task) -> AgentResult:
+                        if self._tracer:
+                            self._tracer.act(f"{agent_tool.agent_id} executing task={task!r}")
+                        return agent_tool(task)
+
+                    futures.append(executor.submit(run))
                 results = [future.result() for future in futures]
         else:
-            results = [tool(item.task) for tool, item in pairs]
-        return {"results": {result.agent_id: result for result in results}}
+            results = []
+            for tool, item in pairs:
+                started = time.perf_counter()
+                if self._tracer:
+                    self._tracer.act(f"{tool.agent_id} executing task={item.task!r}")
+                result = tool(item.task)
+                results.append(result)
+                self._trace_result(result, started)
+        output = {result.agent_id: result for result in results}
+        if self._tracer:
+            for result in results:
+                self._tracer.verify(
+                    f"{result.agent_id} -> {result.status} | evidence={len(result.evidence)} value={result.recommendation!r}"
+                )
+                if result.metadata.get("thinking"):
+                    self._tracer.think(f"{result.agent_id} thought: {result.metadata['thinking']}")
+        return {"results": output}
+
+    def _trace_result(self, result: AgentResult, started: float) -> None:
+        if self._tracer:
+            self._tracer.verify(f"{result.agent_id} -> {result.status} in {self._tracer.runtime_ms(started)}")
 
     def _propose(self, state: OrchestrationState) -> dict[str, Any]:
         results = state.get("results", {})
         if not results:
+            if self._tracer:
+                self._tracer.think("no authorized agents remain -> terminating run")
             return {"proposal": "NO_AUTHORIZED_AGENTS", "no_agents": True}
+        if self._tracer:
+            self._tracer.think(f"integrating {len(results)} specialist results into one decision")
         merged = " | ".join(result.recommendation for result in results.values())
         return {"proposal": f"Integrated decision: {merged}"}
 
     def _critic_node(self, state: OrchestrationState) -> dict[str, Any]:
         critique = self._critic(state.get("proposal", ""))
+        if self._tracer:
+            self._tracer.critic(
+                f"iteration {state.get('iterations', 0) + 1} -> valid={bool(critique.valid)} issue={critique.issue!r}"
+            )
         return {
             "verdict": {"valid": bool(critique.valid), "issue": critique.issue},
             "iterations": state.get("iterations", 0) + 1,
@@ -190,15 +254,29 @@ class LangGraphOrchestrator:
         return "finalize" if state.get("no_agents") else "critic"
 
     def _route_critic(self, state: OrchestrationState) -> str:
-        if state["verdict"]["valid"] or state["iterations"] >= self._max_iterations:
+        if state["verdict"]["valid"]:
+            if self._tracer:
+                self._tracer.think("verdict valid -> accepting proposal")
             return "finalize"
+        if state["iterations"] >= self._max_iterations:
+            if self._tracer:
+                self._tracer.escalate(
+                    f"critic loop exhausted at iteration {state['iterations']} >= max_iterations={self._max_iterations} "
+                    "-> abstain_human_review"
+                )
+            return "finalize"
+        if self._tracer:
+            self._tracer.think("verdict invalid -> sending to refiner for another pass")
         return "refine"
 
     def _refine(self, state: OrchestrationState) -> dict[str, Any]:
         critique = Critique(
             valid=state["verdict"]["valid"], issue=state["verdict"]["issue"], question=""
         )
-        return {"proposal": self._refiner(state.get("proposal", ""), critique)}
+        updated = self._refiner(state.get("proposal", ""), critique)
+        if self._tracer:
+            self._tracer.think(f"refiner applied: proposal updated to {updated!r}")
+        return {"proposal": updated}
 
     def _finalize(self, state: OrchestrationState) -> dict[str, Any]:
         if state.get("no_agents"):

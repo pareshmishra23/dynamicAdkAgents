@@ -7,6 +7,7 @@ langgraph = pytest.importorskip("langgraph")
 from app.agents.factory import default_agent_factory  # noqa: E402
 from app.agents.langgraph_engine import LangGraphOrchestrator  # noqa: E402
 from app.agents.orchestrator import Critique  # noqa: E402
+from app.agents.traces import ThinkTracer  # noqa: E402
 from app.models import AgentDefinition, AgentLimits, RoutingResult, SelectedAgent  # noqa: E402
 from app.registry.agent_registry import AgentRegistry  # noqa: E402
 from app.registry.resolver import AgentResolver  # noqa: E402
@@ -47,13 +48,14 @@ def _routing(*items: tuple[str, str, str]) -> RoutingResult:
     )
 
 
-def _engine(*, needs_approval=None, critic=None, refiner=None, max_iterations=3) -> LangGraphOrchestrator:
+def _engine(*, needs_approval=None, critic=None, refiner=None, max_iterations=3, trace=None) -> LangGraphOrchestrator:
     return LangGraphOrchestrator(
         _resolver(),
         needs_approval=needs_approval,
         critic=critic,
         refiner=refiner,
         max_iterations=max_iterations,
+        trace=trace,
     )
 
 
@@ -138,3 +140,32 @@ def test_critic_accepts_after_refinement() -> None:
     assert result.status == "completed"
     assert result.decision.endswith("~v")
     assert result.iterations == 2
+
+
+def test_engine_emits_thinking_trace() -> None:
+    tracer = ThinkTracer(enabled=False)
+    engine = _engine(trace=tracer)
+    routing = _routing(("taxi_agent", "taxi requested", "book a taxi"))
+    result = engine.start(routing)
+
+    points = "\n".join(result.trace)
+    assert "[think] run=" in points
+    assert "[pointer] selected taxi_agent: reason='taxi requested'" in points
+    assert "[pointer] taxi_agent v1.0 -> capabilities=['taxi']" in points
+    assert "[act] taxi_agent executing task='book a taxi'" in points
+    assert "[verify] taxi_agent -> completed" in points
+    assert "[critic] iteration 1 -> valid=True" in points
+    assert "[decide] status=completed" in points
+
+
+def test_rejection_path_is_traced() -> None:
+    tracer = ThinkTracer(enabled=False)
+    engine = _engine(trace=tracer, needs_approval=lambda agent_id: agent_id == "taxi_agent")
+    routing = _routing(("taxi_agent", "taxi requested", "book a taxi"))
+    first = engine.start(routing, run_id="run-trace-reject")
+    assert first.status == "awaiting_human_approval"
+    engine.resume("run-trace-reject", "rejected")
+
+    points = "\n".join(tracer.steps)
+    assert "[escalate] human approval required for taxi_agent" in points
+    assert "[think] no authorized agents remain" in points
