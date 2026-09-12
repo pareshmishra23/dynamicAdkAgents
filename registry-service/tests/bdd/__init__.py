@@ -1,0 +1,1 @@
+"""BDD test pack for the registry service."""

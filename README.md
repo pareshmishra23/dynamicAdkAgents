@@ -23,6 +23,14 @@ Orchestrator (single final decision owner)
 Critic -> Refiner -> bounded validation loop
 ```
 
+## Registry control plane (Bead 1)
+
+`registry-service/` contains a standalone **FastAPI + H2** control plane that owns
+Agent and MCP configuration for the pool. The ADK app never hard-codes servers or
+touches H2 — it will ask the registry via a client (Bead 2). See
+[`registry-service/README.md`](registry-service/README.md) for setup, the REST API,
+and fully local tests (no Gemini).
+
 ## Concepts
 
 - **Agent:** a reusable reasoning specialist defined in `config/agents.yaml`.

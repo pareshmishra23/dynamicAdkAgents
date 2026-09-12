@@ -1,0 +1,1 @@
+"""ADK registry control plane service."""
