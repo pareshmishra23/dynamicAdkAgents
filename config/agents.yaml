@@ -1,0 +1,60 @@
+agents:
+  - id: sightseeing_agent
+    version: "1.0"
+    enabled: true
+    name: Sightseeing Agent
+    description: Plans sightseeing activities, attractions, and landmarks.
+    capabilities: [sightseeing, attractions, landmarks]
+    instructions: Analyze the assigned sightseeing task and return structured recommendations.
+    input_contract: {type: object, required: [task]}
+    output_contract: {type: object, required: [agent_id, recommendation, evidence]}
+    allowed_tools: []
+    limits: {timeout_seconds: 60, max_tool_calls: 5}
+
+  - id: adventure_agent
+    version: "1.0"
+    enabled: true
+    name: Adventure Agent
+    description: Finds adventure, outdoor, and recreational activities.
+    capabilities: [adventure, outdoor, games]
+    instructions: Analyze only the assigned adventure task and return structured recommendations.
+    input_contract: {type: object, required: [task]}
+    output_contract: {type: object, required: [agent_id, recommendation, evidence]}
+    allowed_tools: []
+    limits: {timeout_seconds: 60, max_tool_calls: 5}
+
+  - id: car_rental_agent
+    version: "1.0"
+    enabled: true
+    name: Car Rental Agent
+    description: Handles rental-car requirements and driving activities.
+    capabilities: [car_rental, rental_car, driving]
+    instructions: Analyze the assigned rental-car task and return structured recommendations.
+    input_contract: {type: object, required: [task]}
+    output_contract: {type: object, required: [agent_id, recommendation, evidence]}
+    allowed_tools: []
+    limits: {timeout_seconds: 60, max_tool_calls: 5}
+
+  - id: taxi_agent
+    version: "1.0"
+    enabled: true
+    name: Taxi Agent
+    description: Handles taxi, cab, commute, and point-to-point transport.
+    capabilities: [taxi, cab, transport, commute, point_to_point_transport]
+    instructions: Analyze the assigned taxi task and return structured recommendations.
+    input_contract: {type: object, required: [task]}
+    output_contract: {type: object, required: [agent_id, recommendation, evidence]}
+    allowed_tools: []
+    limits: {timeout_seconds: 60, max_tool_calls: 5}
+
+  - id: friend_relative_agent
+    version: "1.0"
+    enabled: true
+    name: Friend and Relative Agent
+    description: Plans visits to friends and relatives and social activities.
+    capabilities: [friends, relatives, social_visits]
+    instructions: Analyze the assigned social-visit task and return structured recommendations.
+    input_contract: {type: object, required: [task]}
+    output_contract: {type: object, required: [agent_id, recommendation, evidence]}
+    allowed_tools: []
+    limits: {timeout_seconds: 60, max_tool_calls: 5}
