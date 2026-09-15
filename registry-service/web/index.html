@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ADK Agent Platform — Control & Observability Studio</title>
+  <meta name="description" content="Control Plane, Dynamic Discovery, Governance, and Observability for the Dynamic ADK Agent Platform">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- TOP HEADER -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="brand-logo">
+          <span class="logo-core">ADK</span>
+          <span class="logo-badge">AGENT PLATFORM</span>
+        </div>
+        <div class="header-subtitle">Dynamic Discovery · Capability Resolution · Governed Orchestration</div>
+      </div>
+      <div class="header-right">
+        <div class="system-status-chip">
+          <span class="pulse-indicator"></span>
+          <span>Control Plane: <strong id="controlPlaneStatus">CONNECTED</strong></span>
+        </div>
+        <div class="metric-chip">
+          <span>Active Agents:</span>
+          <strong id="headerActiveAgentsCount">0</strong>
+        </div>
+        <div class="metric-chip">
+          <span>Discovered Tools:</span>
+          <strong id="headerToolsCount">0</strong>
+        </div>
+      </div>
+    </header>
+
+    <!-- NAVIGATION TABS -->
+    <nav class="nav-tabs" role="tablist">
+      <button class="tab-btn active" id="tabBtnExecution" data-tab="tabExecution" role="tab">
+        <span class="tab-icon">⚡</span> Execution Studio
+      </button>
+      <button class="tab-btn" id="tabBtnAgents" data-tab="tabAgents" role="tab">
+        <span class="tab-icon">🤖</span> Agent Pool & Control
+      </button>
+      <button class="tab-btn" id="tabBtnGraph" data-tab="tabGraph" role="tab">
+        <span class="tab-icon">🔗</span> Architecture & Capabilities
+      </button>
+      <button class="tab-btn" id="tabBtnMcp" data-tab="tabMcp" role="tab">
+        <span class="tab-icon">🛠️</span> MCP & Tool Registry
+      </button>
+      <button class="tab-btn" id="tabBtnBenchmark" data-tab="tabBenchmark" role="tab">
+        <span class="tab-icon">🎯</span> 10-Problem Regression Suite
+      </button>
+    </nav>
+
+    <!-- MAIN CONTENT VIEW -->
+    <main class="main-viewport">
+
+      <!-- TAB 1: EXECUTION STUDIO -->
+      <section id="tabExecution" class="tab-pane active">
+        <div class="studio-layout">
+          <!-- LEFT / TOP: PROBLEM SELECTION & INPUT -->
+          <div class="card glass-card studio-input-panel">
+            <div class="panel-header">
+              <div class="panel-title">
+                <span class="icon">🎯</span> Task Execution Input
+              </div>
+              <div class="panel-actions">
+                <button class="btn btn-secondary btn-sm" id="btnQuickP1">P1 Triangle</button>
+                <button class="btn btn-secondary btn-sm" id="btnQuickP7">P7 15-City</button>
+                <button class="btn btn-secondary btn-sm" id="btnQuickP9">P9 Island</button>
+                <button class="btn btn-secondary btn-sm" id="btnQuickP10">P10 Paradox</button>
+              </div>
+            </div>
+
+            <div class="problem-selector-group">
+              <label for="problemSelect" class="form-label">Select Benchmark Problem (1–10)</label>
+              <select id="problemSelect" class="form-select">
+                <option value="">-- Or enter custom query below --</option>
+              </select>
+            </div>
+
+            <div class="query-input-group">
+              <label for="queryInput" class="form-label">Task Request (Natural Language Intent)</label>
+              <textarea id="queryInput" class="form-textarea" rows="2" placeholder="e.g. Solve the 3-city triangle routing problem with distance matrix and constraint verification"></textarea>
+            </div>
+
+            <div class="action-bar">
+              <button id="btnExecute" class="btn btn-primary btn-lg">
+                <span class="btn-icon">▶</span> Run Governed Execution
+              </button>
+              <div id="executionSpinner" class="execution-spinner hidden">
+                <span class="spinner"></span>
+                <span id="spinnerText">Executing Governed Pipeline...</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- OBSERVABILITY FLOW PIPELINE (VISUAL STEPPER) -->
+          <div class="card glass-card studio-pipeline-panel">
+            <div class="panel-header">
+              <div class="panel-title">
+                <span class="icon">📊</span> Pipeline Telemetry (No Private CoT Leaks)
+              </div>
+              <div class="pipeline-badges">
+                <span id="pipelineStatusBadge" class="badge badge-neutral">IDLE</span>
+                <span id="pipelineDurationBadge" class="badge badge-neutral">0 ms</span>
+              </div>
+            </div>
+
+            <!-- INTERACTIVE ARCHITECTURAL STEPPER -->
+            <div class="pipeline-stepper" id="pipelineStepper">
+              <div class="step-node" id="nodeTaskAnalyzer">
+                <div class="node-icon">🧠</div>
+                <div class="node-label">Task Analyzer</div>
+                <div class="node-sub" id="nodeSubAnalyzer">Capabilities only</div>
+              </div>
+              <div class="step-arrow">→</div>
+
+              <div class="step-node" id="nodeCapabilityResolver">
+                <div class="node-icon">🔗</div>
+                <div class="node-label">Capability Resolver</div>
+                <div class="node-sub" id="nodeSubResolver">Provider independence</div>
+              </div>
+              <div class="step-arrow">→</div>
+
+              <div class="step-node" id="nodeScopedPool">
+                <div class="node-icon">📦</div>
+                <div class="node-label">Scoped Pool</div>
+                <div class="node-sub" id="nodeSubPool">Agent-as-a-Tool</div>
+              </div>
+              <div class="step-arrow">→</div>
+
+              <div class="step-node" id="nodeSpecialists">
+                <div class="node-icon">⚙️</div>
+                <div class="node-label">Specialists</div>
+                <div class="node-sub" id="nodeSubSpecialists">Recommendations</div>
+              </div>
+              <div class="step-arrow">→</div>
+
+              <div class="step-node" id="nodeCriticRefiner">
+                <div class="node-icon">⚖️</div>
+                <div class="node-label">Critic & Refiner</div>
+                <div class="node-sub" id="nodeSubCritic">Challenge & Revise</div>
+              </div>
+              <div class="step-arrow">→</div>
+
+              <div class="step-node" id="nodeGuardrail">
+                <div class="node-icon">🛡️</div>
+                <div class="node-label">Guardrail</div>
+                <div class="node-sub" id="nodeSubGuardrail">Deterministic Truth</div>
+              </div>
+              <div class="step-arrow">→</div>
+
+              <div class="step-node" id="nodeFinalDecision">
+                <div class="node-icon">👑</div>
+                <div class="node-label">Final Decision</div>
+                <div class="node-sub" id="nodeSubDecision">Single Owner</div>
+              </div>
+            </div>
+
+            <!-- OBSERVABILITY CARDS -->
+            <div class="telemetry-grid">
+              <!-- Guardrail Banner -->
+              <div class="telemetry-box guardrail-box">
+                <div class="box-label">DETERMINISTIC VALIDATION GUARDRAIL</div>
+                <div class="guardrail-content">
+                  <div class="guardrail-state-badge" id="guardrailStateBadge">READY</div>
+                  <div class="guardrail-explanation" id="guardrailExplanation">No execution loaded yet.</div>
+                </div>
+              </div>
+
+              <!-- Final Decision Banner -->
+              <div class="telemetry-box decision-box">
+                <div class="box-label">FINAL DECISION (SINGLE DECISION OWNER: ORCHESTRATOR)</div>
+                <div class="decision-text" id="finalDecisionText">Awaiting execution...</div>
+              </div>
+
+              <!-- Specialists Recommendations -->
+              <div class="telemetry-box specialists-box">
+                <div class="box-label">SPECIALIST RECOMMENDATIONS (AGENT-AS-A-TOOL)</div>
+                <div id="specialistResultsContainer" class="specialist-list">
+                  <div class="empty-state">No specialist recommendations yet.</div>
+                </div>
+              </div>
+
+              <!-- Critic & Execution Trace -->
+              <div class="telemetry-box trace-box">
+                <div class="box-label">GOVERNANCE & EXECUTION TRACE</div>
+                <div class="trace-hops" id="traceHopsContainer">
+                  <span class="trace-chip">idle</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: AGENT POOL & CONTROL -->
+      <section id="tabAgents" class="tab-pane">
+        <div class="card glass-card">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">🤖 Dynamic Agent Registry Control Plane</div>
+              <div class="panel-desc">Database/API is authoritative. Real-time enable/disable and zero-rebuild registration.</div>
+            </div>
+            <button class="btn btn-primary" id="btnOpenAddAgentModal">
+              <span class="btn-icon">+</span> Register New Agent
+            </button>
+          </div>
+
+          <div class="table-responsive">
+            <table class="data-table" id="agentsTable">
+              <thead>
+                <tr>
+                  <th>Status</th>
+                  <th>Agent ID</th>
+                  <th>Name</th>
+                  <th>Capabilities</th>
+                  <th>Model</th>
+                  <th>Policy Limits</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="agentsTableBody">
+                <tr><td colspan="7" class="loading-td">Loading agents catalog...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: ARCHITECTURE & CAPABILITY GRAPH -->
+      <section id="tabGraph" class="tab-pane">
+        <div class="card glass-card">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">🔗 Provider Independence & Capability Graph</div>
+              <div class="panel-desc">Visual proof: Agents declare abstract capabilities; Resolver binds to active MCP tools and servers.</div>
+            </div>
+            <button class="btn btn-secondary btn-sm" id="btnRefreshGraph">Refresh Graph</button>
+          </div>
+
+          <div class="graph-container" id="graphContainer">
+            <div class="relationship-columns">
+              <div class="rel-column">
+                <div class="rel-col-title">1. Registered Agents</div>
+                <div id="colAgents" class="rel-cards-list"></div>
+              </div>
+              <div class="rel-column">
+                <div class="rel-col-title">2. Semantic Capabilities</div>
+                <div id="colCapabilities" class="rel-cards-list"></div>
+              </div>
+              <div class="rel-column">
+                <div class="rel-col-title">3. Discovered Tools</div>
+                <div id="colTools" class="rel-cards-list"></div>
+              </div>
+              <div class="rel-column">
+                <div class="rel-col-title">4. MCP Servers</div>
+                <div id="colProviders" class="rel-cards-list"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 4: MCP & TOOL REGISTRY -->
+      <section id="tabMcp" class="tab-pane">
+        <div class="mcp-grid">
+          <!-- MCP SERVERS -->
+          <div class="card glass-card">
+            <div class="panel-header">
+              <div class="panel-title">🛠️ MCP Server Registry</div>
+              <span class="badge badge-info" id="badgeMcpCount">0 Servers</span>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table" id="mcpTable">
+                <thead>
+                  <tr>
+                    <th>Status</th>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Endpoint</th>
+                    <th>Transport</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="mcpTableBody">
+                  <tr><td colspan="6" class="loading-td">Loading MCP servers...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- TOOLS REGISTRY -->
+          <div class="card glass-card">
+            <div class="panel-header">
+              <div class="panel-title">🔧 Dynamic Tool Registry</div>
+              <span class="badge badge-info" id="badgeToolsCount">0 Tools</span>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table" id="toolsTable">
+                <thead>
+                  <tr>
+                    <th>Status</th>
+                    <th>Tool ID</th>
+                    <th>Name</th>
+                    <th>Capability</th>
+                    <th>Provider</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="toolsTableBody">
+                  <tr><td colspan="6" class="loading-td">Loading tools...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 5: BENCHMARK REGRESSION SUITE -->
+      <section id="tabBenchmark" class="tab-pane">
+        <div class="card glass-card">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">🎯 10-Problem Acceptance & Regression Suite</div>
+              <div class="panel-desc">Permanent baseline: 10/10 PASS, 0 hallucinations, distinct FEASIBLE vs OPTIMAL vs IMPOSSIBLE.</div>
+            </div>
+            <button class="btn btn-primary" id="btnRunAllBenchmarks">
+              <span class="btn-icon">⚡</span> Run All 10 Benchmark Problems
+            </button>
+          </div>
+
+          <div class="table-responsive">
+            <table class="data-table" id="benchmarkTable">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Problem Title</th>
+                  <th>Cities</th>
+                  <th>Classification</th>
+                  <th>Expected State</th>
+                  <th>Last Result</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="benchmarkTableBody">
+                <tr><td colspan="7" class="loading-td">Loading benchmark problems...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- ADD AGENT MODAL -->
+    <div id="addAgentModal" class="modal-overlay hidden">
+      <div class="modal-card card glass-card">
+        <div class="modal-header">
+          <div class="modal-title">Register New Agent (Zero-Rebuild)</div>
+          <button class="modal-close" id="btnCloseAddAgentModal">✕</button>
+        </div>
+        <form id="formAddAgent">
+          <div class="form-group">
+            <label class="form-label">Agent ID (e.g. graph-analysis-agent)</label>
+            <input type="text" id="newAgentId" class="form-input" required placeholder="graph-analysis-agent">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Agent Name</label>
+            <input type="text" id="newAgentName" class="form-input" required placeholder="Graph Analysis Specialist">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Capabilities (comma separated)</label>
+            <input type="text" id="newAgentCapabilities" class="form-input" required placeholder="graph_analysis, topological_check">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Model Identifier</label>
+            <input type="text" id="newAgentModel" class="form-input" value="gemini-flash-latest">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Description</label>
+            <textarea id="newAgentDescription" class="form-textarea" rows="2" placeholder="Analyzes topological connectivity and distance matrices"></textarea>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="btnCancelAddAgent">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="btnSubmitAddAgent">Register in Control Plane</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

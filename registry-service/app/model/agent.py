@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class AgentPolicy(BaseModel):
@@ -43,13 +43,28 @@ class AgentCreate(BaseModel):
     id: str
     name: str
     description: str = ""
-    capability: str
+    capability: str = ""
+    capabilities: list[str] | None = None
     model: str = "default-model"
     enabled: bool = True
     config: dict[str, Any] = Field(default_factory=dict)
     policy: AgentPolicy | None = None
     output_contract: OutputContract | None = None
     requires_human_approval: bool = False
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_capabilities(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            caps = data.get("capabilities")
+            if caps and not data.get("capability"):
+                if isinstance(caps, (list, tuple)):
+                    data["capability"] = ", ".join(str(c) for c in caps)
+                else:
+                    data["capability"] = str(caps)
+            elif data.get("capability") and not caps:
+                data["capabilities"] = [c.strip() for c in str(data["capability"]).split(",") if c.strip()]
+        return data
 
 
 class AgentUpdate(BaseModel):

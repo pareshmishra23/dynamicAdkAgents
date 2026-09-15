@@ -73,13 +73,14 @@ class AgentRepository:
     def update(self, agent: Agent) -> bool:
         affected = self._db.execute(
             "UPDATE agents SET name = ?, description = ?, capability = ?,"
-            " model = ?, config = ?, policy = ?, output_contract = ?,"
+            " model = ?, enabled = ?, config = ?, policy = ?, output_contract = ?,"
             " requires_human_approval = ?, updated_at = ? WHERE id = ?",
             (
                 agent.name,
                 agent.description,
                 agent.capability,
                 agent.model,
+                agent.enabled,
                 json.dumps(agent.config, default=str),
                 json.dumps(agent.policy.model_dump(), default=str),
                 json.dumps(agent.output_contract.model_dump()) if agent.output_contract else None,

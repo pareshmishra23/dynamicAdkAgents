@@ -10,3 +10,7 @@ htmlcov/
 *.egg-info/
 /logs/
 **/.DS_Store
+data/
+*.mv.db
+*.lock.db
+*.zip

@@ -4,7 +4,7 @@ import json
 import urllib.error
 import urllib.parse
 import urllib.request
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from app.models import AgentDefinition, AgentLimits
@@ -29,6 +29,17 @@ class McpServerConfig:
     version: str
 
 
+@dataclass(frozen=True)
+class ToolRegistration:
+    tool_id: str
+    name: str
+    description: str
+    capability: str
+    provider: str
+    enabled: bool = True
+    config: dict[str, Any] = field(default_factory=dict)
+
+
 def _http_request(url: str, method: str = "GET", body: bytes | None = None, timeout: float = 5.0) -> bytes:
     request = urllib.request.Request(url, data=body, method=method)
     if body is not None:
@@ -41,6 +52,8 @@ def _http_request(url: str, method: str = "GET", body: bytes | None = None, time
 
 
 def _parse_payload(raw: bytes, url: str) -> Any:
+    if not raw:
+        return {}
     try:
         return json.loads(raw.decode("utf-8"))
     except (ValueError, UnicodeDecodeError) as exc:
@@ -103,6 +116,24 @@ def map_mcp_server(payload: dict[str, Any]) -> McpServerConfig:
     )
 
 
+def map_tool(payload: dict[str, Any]) -> ToolRegistration:
+    tool_id = str(payload.get("tool_id") or "")
+    if not tool_id:
+        raise RegistryMappingError("registry tool missing required field: tool_id")
+    capability = str(payload.get("capability") or "")
+    if not capability:
+        raise RegistryMappingError("registry tool missing required field: capability")
+    return ToolRegistration(
+        tool_id=tool_id,
+        name=str(payload.get("name") or tool_id),
+        description=str(payload.get("description") or ""),
+        capability=capability,
+        provider=str(payload.get("provider") or ""),
+        enabled=bool(payload.get("enabled", True)),
+        config=dict(payload.get("config") or {}),
+    )
+
+
 class RegistryClient:
     def __init__(
         self,
@@ -117,12 +148,25 @@ class RegistryClient:
     def request_json(self, path: str, method: str = "GET", *, body: dict[str, Any] | None = None) -> Any:
         url = f"{self.base_url}{path}"
         payload = None if body is None else json.dumps(body).encode("utf-8")
-        return _parse_payload(self._transport(url, method, payload), url)
+        try:
+            raw = self._transport(url, method, payload)
+        except (urllib.error.URLError, urllib.error.HTTPError, OSError, TimeoutError) as exc:
+            raise RegistryUnavailable(f"registry unreachable at {url}: {exc}") from exc
+        return _parse_payload(raw, url)
+
+    # Agent Operations
+    def register_agent(self, payload: dict[str, Any]) -> AgentDefinition:
+        return map_registry_agent(self.request_json("/api/v1/agents", method="POST", body=payload))
 
     def fetch_enabled_agents(self) -> tuple[AgentDefinition, ...]:
         payload = self.request_json("/api/v1/agents?enabled=true")
         records = payload if isinstance(payload, list) else payload.get("items", [])
         return tuple(map_registry_agent(item) for item in records if isinstance(item, dict) and item.get("enabled"))
+
+    def fetch_all_agents(self) -> tuple[AgentDefinition, ...]:
+        payload = self.request_json("/api/v1/agents")
+        records = payload if isinstance(payload, list) else payload.get("items", [])
+        return tuple(map_registry_agent(item) for item in records if isinstance(item, dict))
 
     def fetch_agent(self, agent_id: str) -> AgentDefinition:
         payload = self.request_json(f"/api/v1/agents/{agent_id}")
@@ -137,6 +181,13 @@ class RegistryClient:
     def update_agent(self, agent_id: str, payload: dict[str, Any]) -> AgentDefinition:
         return map_registry_agent(self.request_json(f"/api/v1/agents/{agent_id}", method="PUT", body=payload))
 
+    def delete_agent(self, agent_id: str) -> None:
+        self.request_json(f"/api/v1/agents/{agent_id}", method="DELETE")
+
+    # MCP Server Operations
+    def register_mcp_server(self, payload: dict[str, Any]) -> McpServerConfig:
+        return map_mcp_server(self.request_json("/api/v1/mcp-servers", method="POST", body=payload))
+
     def fetch_enabled_mcp_servers(self) -> tuple[McpServerConfig, ...]:
         payload = self.request_json("/api/v1/mcp-servers?enabled=true")
         records = payload if isinstance(payload, list) else payload.get("items", [])
@@ -145,3 +196,55 @@ class RegistryClient:
             for item in records
             if isinstance(item, dict) and item.get("enabled") and item.get("endpoint")
         )
+
+    def fetch_all_mcp_servers(self) -> tuple[McpServerConfig, ...]:
+        payload = self.request_json("/api/v1/mcp-servers")
+        records = payload if isinstance(payload, list) else payload.get("items", [])
+        return tuple(map_mcp_server(item) for item in records if isinstance(item, dict))
+
+    def fetch_mcp_server(self, server_id: str) -> McpServerConfig:
+        payload = self.request_json(f"/api/v1/mcp-servers/{server_id}")
+        return map_mcp_server(payload)
+
+    def enable_mcp_server(self, server_id: str) -> McpServerConfig:
+        return map_mcp_server(self.request_json(f"/api/v1/mcp-servers/{server_id}/enable", method="PATCH"))
+
+    def disable_mcp_server(self, server_id: str) -> McpServerConfig:
+        return map_mcp_server(self.request_json(f"/api/v1/mcp-servers/{server_id}/disable", method="PATCH"))
+
+    def update_mcp_server(self, server_id: str, payload: dict[str, Any]) -> McpServerConfig:
+        return map_mcp_server(self.request_json(f"/api/v1/mcp-servers/{server_id}", method="PUT", body=payload))
+
+    def delete_mcp_server(self, server_id: str) -> None:
+        self.request_json(f"/api/v1/mcp-servers/{server_id}", method="DELETE")
+
+    # Tool Operations
+    def register_tool(self, payload: dict[str, Any]) -> ToolRegistration:
+        return map_tool(self.request_json("/api/v1/tools", method="POST", body=payload))
+
+    def fetch_tool(self, tool_id: str) -> ToolRegistration:
+        payload = self.request_json(f"/api/v1/tools/{tool_id}")
+        return map_tool(payload)
+
+    def fetch_tools(self, enabled: bool | None = None, capability: str | None = None) -> tuple[ToolRegistration, ...]:
+        params = []
+        if enabled is not None:
+            params.append(f"enabled={'true' if enabled else 'false'}")
+        if capability is not None:
+            params.append(f"capability={urllib.parse.quote(capability)}")
+        query = ("?" + "&".join(params)) if params else ""
+        payload = self.request_json(f"/api/v1/tools{query}")
+        records = payload if isinstance(payload, list) else payload.get("items", [])
+        return tuple(map_tool(item) for item in records if isinstance(item, dict))
+
+    def enable_tool(self, tool_id: str) -> ToolRegistration:
+        return map_tool(self.request_json(f"/api/v1/tools/{tool_id}/enable", method="PATCH"))
+
+    def disable_tool(self, tool_id: str) -> ToolRegistration:
+        return map_tool(self.request_json(f"/api/v1/tools/{tool_id}/disable", method="PATCH"))
+
+    def update_tool(self, tool_id: str, payload: dict[str, Any]) -> ToolRegistration:
+        return map_tool(self.request_json(f"/api/v1/tools/{tool_id}", method="PUT", body=payload))
+
+    def delete_tool(self, tool_id: str) -> None:
+        self.request_json(f"/api/v1/tools/{tool_id}", method="DELETE")

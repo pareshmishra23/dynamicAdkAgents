@@ -44,8 +44,9 @@ class AgentService:
         current = self.get(agent_id)
         if current.enabled == enabled:
             return current
-        updated = current.model_copy(update={"enabled": enabled, "updated_at": utcnow()})
-        self._repository.update(updated)
+        now = utcnow()
+        updated = current.model_copy(update={"enabled": enabled, "updated_at": now})
+        self._repository.set_enabled(agent_id, enabled, now)
         return updated
 
     def delete(self, agent_id: str) -> None:

@@ -41,6 +41,19 @@ class H2Database:
             updated_at VARCHAR(64) NOT NULL
         )
         """,
+        """
+        CREATE TABLE IF NOT EXISTS tools (
+            tool_id VARCHAR(128) NOT NULL PRIMARY KEY,
+            name VARCHAR(256) NOT NULL,
+            description VARCHAR(1024) NOT NULL DEFAULT '',
+            capability VARCHAR(256) NOT NULL,
+            provider VARCHAR(256) NOT NULL DEFAULT '',
+            enabled BOOLEAN NOT NULL DEFAULT TRUE,
+            config VARCHAR(4096) NOT NULL DEFAULT '{}',
+            created_at VARCHAR(64) NOT NULL,
+            updated_at VARCHAR(64) NOT NULL
+        )
+        """,
     ]
 
     def __init__(

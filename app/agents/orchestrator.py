@@ -63,6 +63,63 @@ class Orchestrator:
             trace=("router", "agent_registry", "agent_as_tool", "parallel" if parallel else "sequential", "orchestrator"),
         )
 
+    def run_governed(
+        self,
+        routing: RoutingResult,
+        *,
+        critic: Callable[[str], Critique] | None = None,
+        refiner: Callable[[str, Critique], str] | None = None,
+        guardrail: Any | None = None,
+        proposed_route: tuple[str, ...] | list[str] | None = None,
+        max_iterations: int = 3,
+        parallel: bool = True,
+    ) -> OrchestrationResult:
+        """Run the single-decision-owner governed pipeline:
+
+        Specialists recommend -> Aggregation -> Critic challenges -> Refiner revises -> Guardrail verifies -> Orchestrator decides.
+        """
+        results = self.execute_parallel(routing) if parallel else self.execute_sequential(routing)
+        proposal = self.integrate(results)
+        iterations = 0
+
+        trace = ["router", "agent_registry", "agent_as_tool", "parallel" if parallel else "sequential", "specialist_recommendations"]
+
+        if critic and refiner:
+            bounded_refiner = BoundedRefiner(critic, refiner, max_iterations=max_iterations)
+            proposal, iterations, refiner_status = bounded_refiner.run(proposal)
+            trace.extend(["critic", "refiner"])
+            if refiner_status == "abstain_human_review":
+                trace.append("orchestrator")
+                return OrchestrationResult(
+                    status="abstain_human_review",
+                    specialist_results=results,
+                    final_decision="Abstained: Refinement reached iteration limit without resolving critique",
+                    iterations=iterations,
+                    trace=tuple(trace),
+                )
+
+        if guardrail is not None:
+            trace.append("deterministic_guardrail")
+            validation = guardrail.validate_proposal(proposed_route=proposed_route)
+            if not validation.is_valid:
+                trace.append("orchestrator")
+                return OrchestrationResult(
+                    status="rejected_by_guardrail",
+                    specialist_results=results,
+                    final_decision=f"Guardrail rejection: {validation.reason}",
+                    iterations=iterations,
+                    trace=tuple(trace),
+                )
+
+        trace.append("orchestrator")
+        return OrchestrationResult(
+            status="completed",
+            specialist_results=results,
+            final_decision=proposal,
+            iterations=iterations,
+            trace=tuple(trace),
+        )
+
 
 @dataclass(frozen=True)
 class Critique:
